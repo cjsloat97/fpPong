@@ -1,3 +1,15 @@
+# ToDo
+
+1. Make the game
+    Dicuss game architecture
+2. Network the game
+    Node backend
+    2a. Have a lobby system/ find match feature
+3. Make accounts
+    Just save passwords in plain text and manually verify who is who
+4. Setup backend/database
+5. Fillout leaderboards
+
 # Pong
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 11.0.6.

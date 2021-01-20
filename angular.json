@@ -30,7 +30,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": ["src/assets/game.js"]
           },
           "configurations": {
             "production": {
@@ -124,5 +124,8 @@
       }
     }
   },
-  "defaultProject": "pong"
+  "defaultProject": "pong",
+  "cli": {
+    "analytics": "ca1cbcf0-ef4c-41ec-a184-284ed30ffddb"
+  }
 }

@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
+import { WebSocketService } from '../web-socket.service';
 
 @Component({
   selector: 'app-game',
@@ -7,15 +8,23 @@ import { Component, OnInit } from '@angular/core';
 })
 export class GameComponent implements OnInit {
 
+  @HostListener('document:mousemove', ['$event']) 
+  onMouseMove(e) {
+    if (this.game && !this.game.pause) {
+      this.moveMouse(e);
+    }
+  }
+
   private canvas: any;
   private game: any;
   private ctx: any;
   private soundLeft: any;
   private soundRight: any;
   private soundWall: any;
-  private gameTimeLast: any;
+  private gameTimeLast: Date;
+  public playerNumber: Number;
 
-  constructor() { }
+  constructor(private webS : WebSocketService) { }
 
   ngOnInit(): void {
     this.gameTimeLast = new Date();
@@ -24,7 +33,17 @@ export class GameComponent implements OnInit {
     this.soundLeft = document.getElementById("bounceLeft");
     this.soundRight = document.getElementById("bounceRight");
     this.soundWall = document.getElementById("bounceWall");
+    this.webS.listen('update').subscribe((data) => {
+      if (this.game && !this.game.pause) {
+        this.update(data);
+      }
+    });
+    this.webS.listen('playerNumber').subscribe((data:Number) => {
+        this.playerNumber = data;
+    });
+   }
 
+  gameInit(){
     this.game = {
       player: {
         y: this.canvas.height / 2,
@@ -42,11 +61,6 @@ export class GameComponent implements OnInit {
         vy: Math.random() * 4 - 2,
         bounces: 0,
         radius: 3,
-        reset: function (canvas: any) {
-          this.x = canvas.width / 2;
-          this.y = canvas.height / 2;
-          this.vy = Math.random() * 4 - 2;
-        },
         multiplier: .2,
         maxspeed: 5
       },
@@ -55,10 +69,13 @@ export class GameComponent implements OnInit {
       pause: false,
       sound: true
     };
+    this.webS.emit('start',this.game.ball);
+  }
 
-    document.onmousemove = this.moveMouse;
-
-    this.update();
+  reset(){
+    this.game.ball.x = this.canvas.width / 2;
+    this.game.ball.y = this.canvas.height / 2;
+    this.game.ball.vy = Math.random() * 4 - 2;
   }
 
   changeBallDirection(player: { y: number; }) {
@@ -99,9 +116,8 @@ export class GameComponent implements OnInit {
       this.game.player.y = y;
   }
 
-  update() {
+  update(incBall) {
     var dateTime = new Date();
-
     var gameTime = (dateTime.getTime() - this.gameTimeLast.getTime());
     if (gameTime < 0)
       gameTime = 0;
@@ -141,7 +157,7 @@ export class GameComponent implements OnInit {
         } else {
           this.game.computer.score++;
           document.getElementById("computerScore").innerHTML = this.game.computer.score;
-          this.game.ball.reset();
+          this.reset();
           this.game.ball.vx = -1;
         }
       }
@@ -159,19 +175,17 @@ export class GameComponent implements OnInit {
         } else {
           this.game.player.score++;
           document.getElementById("playerScore").innerHTML = this.game.player.score;
-          this.game.ball.reset();
+          this.reset();
           this.game.ball.vx = 1;
         }
       }
-      this.game.ball.x += this.game.ball.vx * moveAmount;
-      this.game.ball.y += this.game.ball.vy * moveAmount;
+      this.game.ball.x = incBall.x;
+      this.game.ball.y = incBall.y;
     }
 
     this.draw();
+    this.gameTimeLast.setTime(dateTime.getTime());
 
-    setTimeout(this.update, 1000 / 30);
-
-    this.gameTimeLast = dateTime;
   }
   
   draw() {
@@ -196,7 +210,43 @@ export class GameComponent implements OnInit {
       this.ctx.fillRect(this.game.ball.x - this.game.ball.radius, this.game.ball.y
           - this.game.ball.radius, this.game.ball.radius * 2, this.game.ball.radius * 2);
     }
-  } 
+  }
+
+  pause(){
+		if (!this.game.pause) {
+			this.game.pause = true;
+			document.getElementById('pauseButton').innerHTML = "Continue";
+			document.getElementById('pauseText').style.display = "block";
+		}
+		else {
+			this.game.pause = false;
+			document.getElementById('pauseButton').innerHTML = "Pause";
+			document.getElementById('pauseText').style.display = "none";
+		}
+  }
+  
+	toggleSound() {
+		if (!this.game.sound) {
+			this.game.sound = true;
+			document.getElementById('soundButton').innerHTML = "Turn off sound";
+		}
+		else {
+			this.game.sound = false;
+			document.getElementById('soundButton').innerHTML = "Turn on sound";
+		}
+	}
+  
+  addItem(){
+    var li = document.createElement("LI");  
+    li.innerHTML = "Tim";
+    document.getElementById("faves").appendChild(li);
+  }
+  
+  intro() {
+    document.getElementById('titleScreen').style.display = "none";
+    document.getElementById('playScreen').style.display = "block";
+    this.gameInit();
+    }
 
 
 }

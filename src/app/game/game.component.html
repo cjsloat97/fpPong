@@ -12,6 +12,7 @@
 
     <button class="nav-item nav-link-edit" [routerLink]="['/leaderboard']">Leaderboard</button>
     <button class="nav-item nav-link-edit" [routerLink]="['']">Log Out</button>
+    Player: {{this.playerNumber}}
 
     <div id="gamediv">
         <div id="titleScreen">
@@ -23,7 +24,7 @@
                 3.5+ at the moment.</p>
             <p class="vcard">Made by <a href="http://daverix.net/" class="url fn" target="_top" rel="me">David
                     Laurell</a></p>
-            <button id="playButton">Play!</button>
+            <button id="playButton" (click)="intro()">Play!</button>
         </div>
         <div id="playScreen">
             <canvas width="640" height="360" id="gameCanvas">
@@ -37,15 +38,15 @@
             <div id="computerScore">0</div>
             <div id="playerScore">0</div>
             <div class="ingamebuttons">
-                <button id="pauseButton">Pause</button>
-                <button id="soundButton">Turn off sound</button>
+                <button id="pauseButton" (click)="pause()">Pause</button>
+                <button id="soundButton" (click)="toggleSound()">Turn off sound</button>
             </div>
             <div id="pauseText">Paused</div>
         </div>
     </div>
     <div class="right-element">
         Challenge Line:
-        <input type="button" id="btnAdd" value="Challenge">
+        <input type="button" id="btnAdd" value="Challenge" (click)="addItem()">
     </div>
     <ol id="faves">
         <li>Danny</li>

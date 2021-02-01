@@ -30,7 +30,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": ["src/assets/game.js"]
+            "scripts": []
           },
           "configurations": {
             "production": {

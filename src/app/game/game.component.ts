@@ -8,13 +8,13 @@ import { WebSocketService } from '../web-socket.service';
 })
 export class GameComponent implements OnInit {
 
-  @HostListener('document:mousemove', ['$event']) 
+  @HostListener('document:mousemove', ['$event'])
   onMouseMove(e) {
     if (this.game && !this.game.pause) {
       this.moveMouse(e);
     }
   }
-
+  readonly uri: string = 'ws://localhost:4000';
   private canvas: any;
   private game: any;
   private ctx: any;
@@ -24,9 +24,10 @@ export class GameComponent implements OnInit {
   private gameTimeLast: Date;
   public playerNumber: Number;
 
-  constructor(private webS : WebSocketService) { }
+  constructor(private webS: WebSocketService) { }
 
   ngOnInit(): void {
+
     this.gameTimeLast = new Date();
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
@@ -38,12 +39,21 @@ export class GameComponent implements OnInit {
         this.update(data);
       }
     });
-    this.webS.listen('playerNumber').subscribe((data:Number) => {
-        this.playerNumber = data;
+    this.webS.listen('opponentUpdate').subscribe((data: any) => {
+      if (this.game && !this.game.pause) {
+        if (data.computer !== null && this.playerNumber === 1) {
+          this.game.computer = data.computer;
+        } else {
+          this.game.player = data.player;
+        }
+      }
     });
-   }
+    this.webS.listen('playerNumber').subscribe((data: Number) => {
+      this.playerNumber = data;
+    });
+  }
 
-  gameInit(){
+  gameInit() {
     this.game = {
       player: {
         y: this.canvas.height / 2,
@@ -67,186 +77,127 @@ export class GameComponent implements OnInit {
       playerHeight: 80,
       playerWidth: 4,
       pause: false,
-      sound: true
+      sound: false
     };
-    this.webS.emit('start',this.game.ball);
+    this.webS.emit('start', { canvas: { height: this.canvas.height, width: this.canvas.width }, ball: this.game.ball, player: this.game.player, computer: this.game.computer });
   }
 
-  reset(){
-    this.game.ball.x = this.canvas.width / 2;
-    this.game.ball.y = this.canvas.height / 2;
-    this.game.ball.vy = Math.random() * 4 - 2;
-  }
-
-  changeBallDirection(player: { y: number; }) {
-    if(player.y > this.game.ball.y)
-      this.game.ball.vy -= (player.y - this.game.ball.y) / this.game.playerHeight * this.game.ball.maxspeed;
-    else if(player.y < this.game.ball.y)
-      this.game.ball.vy += (this.game.ball.y - player.y) / this.game.playerHeight * this.game.ball.maxspeed;
-  
-    this.game.ball.vx *= -1;
-  }
 
   playSound(snd: { paused: any; pause: () => void; currentTime: number; play: () => void; }) {
-    if(this.game.sound) {
+    if (this.game.sound) {
       try {
         if (!snd.paused) {
           // Pause and reset it
-          snd.pause();	
+          snd.pause();
           snd.currentTime = 0;
         }
         snd.play();
       }
-      catch(e) {}
+      catch (e) { }
     }
   }
 
   moveMouse(e: any | undefined) {
-    var y;
-    if (!e) {
-      e = window;
-      y = e.pageXOffset;
-    }
-    else {
-      y = e.pageY;
-    }
+    if (this.playerNumber === 1) {
+      var y;
+      if (!e) {
+        e = window;
+        y = e.pageXOffset;
+      }
+      else {
+        y = e.pageY;
+      }
 
-    y -= this.canvas.offsetTop;
-    if (y - this.game.playerHeight / 2 >= 0 && y + this.game.playerHeight / 2 <= this.canvas.height)
-      this.game.player.y = y;
+      y -= this.canvas.offsetTop;
+      if (y - this.game.playerHeight / 2 >= 0 && y + this.game.playerHeight / 2 <= this.canvas.height && this.game.computer !== undefined)
+        this.game.computer.y = y;
+      this.webS.emit('mouseMove', this.game.computer);
+    } else {
+      var y;
+      if (!e) {
+        e = window;
+        y = e.pageXOffset;
+      }
+      else {
+        y = e.pageY;
+      }
+
+      y -= this.canvas.offsetTop;
+      if (y - this.game.playerHeight / 2 >= 0 && y + this.game.playerHeight / 2 <= this.canvas.height && this.game.player !== undefined)
+        this.game.player.y = y;
+      this.webS.emit('mouseMove', this.game.player);
+    }
   }
 
-  update(incBall) {
-    var dateTime = new Date();
-    var gameTime = (dateTime.getTime() - this.gameTimeLast.getTime());
-    if (gameTime < 0)
-      gameTime = 0;
-
-    var moveAmount = gameTime > 0 ? gameTime / 10 : 1;
-
-    if (!this.game.pause) {
-      /* Move cpu player */
-      if (this.game.computer.y + 20 < this.game.ball.y && this.game.computer.y + this.game.playerHeight / 2 <= this.canvas.height)
-        this.game.computer.y += this.game.computer.speed * moveAmount;
-      else if (this.game.computer.y - 20 > this.game.ball.y && this.game.computer.y - this.game.playerHeight / 2 >= 0)
-        this.game.computer.y -= this.game.computer.speed * moveAmount;
-
-      /* Change direction of ball when hitting a wall */
-      if (this.game.ball.y + this.game.ball.radius > this.canvas.height
-        || this.game.ball.y - this.game.ball.radius < 0) {
-        this.playSound(this.soundWall);
-        if (this.game.ball.y <= this.game.ball.radius)
-          this.game.ball.y = this.game.ball.radius;
-        else
-          this.game.ball.y = this.canvas.height - this.game.ball.radius;
-
-        this.game.ball.vy *= -1;
-      }
-
-      /* checking collision between ball and player */
-      if (this.game.ball.x + this.game.ball.radius >= this.canvas.width - this.game.playerWidth) {
-        if (this.game.ball.y + this.game.ball.radius >= this.game.player.y - this.game.playerHeight / 2
-          && this.game.ball.y + this.game.ball.radius <= this.game.player.y + this.game.playerHeight / 2) {
-          this.playSound(this.soundRight);
-
-          if (this.game.ball.vx <= this.game.ball.maxspeed) {
-            this.game.ball.vx += this.game.ball.multiplier;
-          }
-
-          this.changeBallDirection(this.game.player);
-        } else {
-          this.game.computer.score++;
-          document.getElementById("computerScore").innerHTML = this.game.computer.score;
-          this.reset();
-          this.game.ball.vx = -1;
-        }
-      }
-      /* checking collision between ball and cpu */
-      else if (this.game.ball.x - this.game.ball.radius <= this.game.playerWidth) {
-        if (this.game.ball.y + this.game.ball.radius >= this.game.computer.y - this.game.playerHeight / 2
-          && this.game.ball.y + this.game.ball.radius <= this.game.computer.y + this.game.playerHeight / 2) {
-          this.playSound(this.soundLeft);
-
-          if (this.game.ball.vx >= -this.game.ball.maxspeed) {
-            this.game.ball.vx -= this.game.ball.multiplier;
-          }
-
-          this.changeBallDirection(this.game.computer);
-        } else {
-          this.game.player.score++;
-          document.getElementById("playerScore").innerHTML = this.game.player.score;
-          this.reset();
-          this.game.ball.vx = 1;
-        }
-      }
-      this.game.ball.x = incBall.x;
-      this.game.ball.y = incBall.y;
-    }
-
+  update(incData) {
+    this.game.ball = incData.ball;
+    this.game.player = incData.player;
+    this.game.computer = incData.computer;
+    document.getElementById("playerScore").innerHTML = this.game.player.score;
+    document.getElementById("computerScore").innerHTML = this.game.computer.score;
     this.draw();
-    this.gameTimeLast.setTime(dateTime.getTime());
 
   }
-  
+
   draw() {
     if (!this.game.pause) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-  
+
       this.ctx.fillStyle = "rgb(64,64,64)";
       var size = 3;
-      for(var y=0;y<this.canvas.height;y+=size*3) {
-        this.ctx.fillRect(this.canvas.width / 2 - size/2, y, size, size);
+      for (var y = 0; y < this.canvas.height; y += size * 3) {
+        this.ctx.fillRect(this.canvas.width / 2 - size / 2, y, size, size);
       }
-  
+
       // left player
       this.ctx.fillStyle = "rgba(128,128,128,.8)";
       this.ctx.fillRect(0, this.game.computer.y - this.game.playerHeight / 2,
-          this.game.playerWidth, this.game.playerHeight);
+        this.game.playerWidth, this.game.playerHeight);
       // right player
       this.ctx.fillRect(this.canvas.width - this.game.playerWidth, this.game.player.y
-          - this.game.playerHeight / 2, this.game.playerWidth, this.game.playerHeight);
-  
+        - this.game.playerHeight / 2, this.game.playerWidth, this.game.playerHeight);
+
       this.ctx.fillStyle = "rgba(192,192,192,8)";
       this.ctx.fillRect(this.game.ball.x - this.game.ball.radius, this.game.ball.y
-          - this.game.ball.radius, this.game.ball.radius * 2, this.game.ball.radius * 2);
+        - this.game.ball.radius, this.game.ball.radius * 2, this.game.ball.radius * 2);
     }
   }
 
-  pause(){
-		if (!this.game.pause) {
-			this.game.pause = true;
-			document.getElementById('pauseButton').innerHTML = "Continue";
-			document.getElementById('pauseText').style.display = "block";
-		}
-		else {
-			this.game.pause = false;
-			document.getElementById('pauseButton').innerHTML = "Pause";
-			document.getElementById('pauseText').style.display = "none";
-		}
+  pause() {
+    if (!this.game.pause) {
+      this.game.pause = true;
+      document.getElementById('pauseButton').innerHTML = "Continue";
+      document.getElementById('pauseText').style.display = "block";
+    }
+    else {
+      this.game.pause = false;
+      document.getElementById('pauseButton').innerHTML = "Pause";
+      document.getElementById('pauseText').style.display = "none";
+    }
   }
-  
-	toggleSound() {
-		if (!this.game.sound) {
-			this.game.sound = true;
-			document.getElementById('soundButton').innerHTML = "Turn off sound";
-		}
-		else {
-			this.game.sound = false;
-			document.getElementById('soundButton').innerHTML = "Turn on sound";
-		}
-	}
-  
-  addItem(){
-    var li = document.createElement("LI");  
+
+  toggleSound() {
+    if (!this.game.sound) {
+      this.game.sound = true;
+      document.getElementById('soundButton').innerHTML = "Turn off sound";
+    }
+    else {
+      this.game.sound = false;
+      document.getElementById('soundButton').innerHTML = "Turn on sound";
+    }
+  }
+
+  addItem() {
+    var li = document.createElement("LI");
     li.innerHTML = "Tim";
     document.getElementById("faves").appendChild(li);
   }
-  
+
   intro() {
     document.getElementById('titleScreen').style.display = "none";
     document.getElementById('playScreen').style.display = "block";
     this.gameInit();
-    }
+  }
 
 
 }

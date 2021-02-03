@@ -8,10 +8,11 @@ import { io } from 'socket.io-client';
 export class WebSocketService {
 
   socket:any;
-  readonly uri: string = 'ws://localhost:4000';
+  //readonly uri: string = 'http://73.182.218.48:4000';
 
   constructor() {
-    this.socket = io(this.uri);
+    const uri = window.prompt("Enter server","");
+    this.socket = io(uri);
    }
 
 
